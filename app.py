@@ -1,73 +1,85 @@
-# app.py
-from flask import Flask, request, jsonify
-from data import school_data
+# app.py - Flask web app for Gurukul Convent School data
+
+from flask import Flask, render_template_string, request, jsonify
+from data import school_data  # Import data from data.py
 
 app = Flask(__name__)
 
-def get_response(msg):
-    msg = msg.lower()
-
-    # School basic info
-    if "school name" in msg or "name of school" in msg:
-        return f"Hello! I am Sinoy 🤖. The school name is {school_data['basic_details']['name']}."
-    
-    elif "timing" in msg or "school hours" in msg:
-        general = school_data['basic_details']['school_timing']
-        nursery = school_data['basic_details']['section_timing']['nursery_ukg']
-        classi = school_data['basic_details']['section_timing']['class_i_xii']
-        return f"School Timing: {general}. Nursery to UKG: {nursery}, Class I to XII: {classi}."
-
-    elif "principal" in msg:
-        return f"The principal is {school_data['management']['principal']}."
-    
-    elif "director" in msg:
-        return f"The director is {school_data['management']['director']}."
-
-    elif "fees" in msg:
-        school_fee = "₹2000 per month"
-        coaching_fee = "₹2000 per month"
-        return f"Class 11 Fees → School Fee: {school_fee}, Coaching Fee: {coaching_fee}"
-
-    elif "bus" in msg or "transport" in msg:
-        response = "Transport Routes and Fees:\n"
-        for route, fee in school_data['transport']['routes'].items():
-            response += f"{route} – {'₹'+str(fee) if fee else 'Fee not specified'}\n"
-        return response.strip()
-
-    elif "science exhibition" in msg:
-        se = school_data['science_exhibition']
-        return f"Science Exhibition is on {se['date']}. Head: {se['head']}. Supporting Members: {', '.join(se['supporting_members'])}."
-
-    elif "best player" in msg or "cricket" in msg or "volleyball" in msg:
-        cricket = school_data['best_players']['all_time_cricket']
-        volleyball = school_data['best_players']['all_time_volleyball']
-        return f"Best players of all time → Cricket: {cricket}, Volleyball: {volleyball}"
-
-    elif "address" in msg:
-        return f"School Address: {school_data['address']}"
-
-    elif "contact" in msg or "call" in msg or "phone" in msg:
-        return f"Contact Numbers: {', '.join(school_data['contact_numbers'])}"
-
-    # Fallback
-    else:
-        return school_data['contact_fallback']
-
-# Home route
-@app.route("/")
+# Home page: Displays a summary of the school
+@app.route('/')
 def home():
-    return "Welcome to GCS AI 🤖 Chatbot! Use POST /chat with JSON {'message':'your question'}"
+    summary = f"""
+    <h1>Welcome to {school_data['basic_details']['name']}</h1>
+    <p><strong>Type:</strong> {school_data['basic_details']['type']}</p>
+    <p><strong>Established:</strong> {school_data['basic_details']['established']}</p>
+    <p><strong>Address:</strong> {school_data['address']}</p>
+    <p><strong>Vision:</strong> {school_data['vision_mission_motto']['vision']}</p>
+    <p><strong>Motto:</strong> {school_data['vision_mission_motto']['motto']}</p>
+    <p><strong>GCS AI Project Founders:</strong> {', '.join(school_data['gcs_ai_project']['founders'])}</p>
+    <ul>
+        <li><a href="/details/basic">Basic Details</a></li>
+        <li><a href="/details/staff">Teaching Staff</a></li>
+        <li><a href="/details/class11">Class 11 Students</a></li>
+        <li><a href="/details/fees">Fee Structure</a></li>
+        <li><a href="/search">Search (e.g., student or staff name)</a></li>
+    </ul>
+    """
+    return render_template_string(summary)
 
-# Chat route
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.json
-    msg = data.get("message")
-    if not msg:
-        return jsonify({"response": "Please send a message."})
+# Detailed view for a section
+@app.route('/details/<section>')
+def details(section):
+    if section == 'basic':
+        data = school_data['basic_details']
+    elif section == 'staff':
+        data = school_data['teaching_staff']
+    elif section == 'class11':
+        data = school_data['class_11']
+    elif section == 'fees':
+        data = school_data['fee_structure']
+    else:
+        return "Section not found", 404
     
-    response = get_response(msg)
-    return jsonify({"response": response})
+    html = f"<h1>{section.title()} Details</h1><pre>{data}</pre><a href='/'>Back to Home</a>"
+    return render_template_string(html)
 
-if __name__ == "__main__":
+# Search endpoint (simple AI-like query for names)
+@app.route('/search', methods=['GET', 'POST'])
+def search():
+    if request.method == 'POST':
+        query = request.form.get('query', '').lower()
+        results = []
+        
+        # Search in Class 11 students
+        for student in school_data['class_11']['boys'] + school_data['class_11']['girls']:
+            if query in student.lower():
+                results.append(f"Student: {student}")
+        
+        # Search in staff
+        for teacher in school_data['teaching_staff']['senior_teachers'] + school_data['teaching_staff']['junior_teachers']:
+            if query in teacher['name'].lower():
+                results.append(f"Staff: {teacher['name']} ({teacher.get('subject', 'N/A')})")
+        
+        if not results:
+            results = ["No matches found."]
+        
+        return render_template_string(f"<h1>Search Results for '{query}'</h1><ul>{''.join(f'<li>{r}</li>' for r in results)}</ul><a href='/'>Back</a>")
+    
+    # GET: Show search form
+    form = """
+    <h1>Search School Data</h1>
+    <form method="post">
+        <input type="text" name="query" placeholder="Enter name (e.g., Shashi Kapoor)">
+        <button type="submit">Search</button>
+    </form>
+    <a href="/">Back to Home</a>
+    """
+    return render_template_string(form)
+
+# API endpoint for JSON data (useful for AI integrations)
+@app.route('/api/data')
+def api_data():
+    return jsonify(school_data)
+
+if __name__ == '__main__':
     app.run(debug=True)
