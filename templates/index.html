@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GCS AI Helpdesk</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>GCS AI Helpdesk</h1>
+    <div class="chatbox">
+        <div id="chatLog"></div>
+        <input type="text" id="queryInput" placeholder="Ask anything about the school..." />
+        <button onclick="askQuestion()">Send</button>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
